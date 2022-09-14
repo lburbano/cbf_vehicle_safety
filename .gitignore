@@ -1,0 +1,15 @@
+/build
+/.vscode
+/.vs
+CMakePresets.json
+/results
+*.csv
+communication_prof.py
+./results
+./slprj
+*.zip
+robot_tracking.m
+sender.m
+debug.m
+carLikeController.m
+*/results
