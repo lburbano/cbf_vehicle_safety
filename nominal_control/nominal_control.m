@@ -1,4 +1,4 @@
-function [v_tang, v_tran, v1_fbl_new, v2_fbl_new, M, xi, eta] = nominal_control(x, kc, L, r, v)
+function [v_tang, v_tran, v1_fbl_new, v2_fbl_new, M, xi, eta, Lf3P, Lf3S] = nominal_control(x, kc, L, r, v)
     k1 = kc(1);
     k2 = kc(2);
     k3 = kc(3);
