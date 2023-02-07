@@ -26,5 +26,4 @@ function [A, B] = create_inequalities( k_1, k_2, lie_derivatives_B_1, lie_deriva
     A = [A_1; A_2];
     B = [B_1; B_2];
     
-    
 end

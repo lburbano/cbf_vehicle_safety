@@ -15,10 +15,10 @@ HostIP = '127.0.0.1';
 client_camera.Initialize(HostIP, HostIP);
 Drone_ID = 1;
 %% Nominal controller Parameters
-v        = 0.0001; %%% Not the linear velocity input but the fixed speed
-k1       = 70;    %
-k2       = 80;
-k3       = 5;    %
+v        = 0.000001; %%% Not the linear velocity input but the fixed speed
+k1       = 50;    %
+k2       = 40;
+k3       = 4;    %
 k4       = 100;
 k5       = 26;
 kc       = [k1, k2, k3, k4, k5];
@@ -27,28 +27,28 @@ r        = 2;     %% radius of the circle to follow
 
 %% Obstacle avoidance parameters
 epsilon1    = 0.25;
-eta0        = [3*pi/4 -pi/4];
+eta0        = [-pi/4-0.3 -5*pi/4-0.3];
 epsilon2    = epsilon1;
 xi0         = 0;
 n_obstacles = length(eta0);
-x_obs = [];
+xs_obs = [];
 epsilons = [];
 for i = 1 :length(eta0)
-    x_obs = [x_obs; r*[sin(eta0(i)), cos(eta0(i))] ];
+    xs_obs = [xs_obs; r*[sin(eta0(i)), cos(eta0(i))] ];
     epsilons = [epsilons; [epsilon1, epsilon2]];
 end
-phi_I = pi; % threshold angle
+phi_I = pi/2; % threshold angle
 
 %% Initialize communication
-ip = "192.168.1.200";
+ip = "192.168.2.200";
 message_size = 8;
 port = 12345;
 client_robot = clientCommunication(ip, port, message_size);
 
 %%
 % Simulation time
-dt   = 1/15; % Time step
 Tmax = 200;  % End point
+dt   = 1/15; % Time step
 T    = 0:dt:Tmax; % Time vector
 time = T;
 
@@ -106,24 +106,16 @@ for i=1:length(T)-1
     
     avoid_obstacle = 1;
     x_veh = [x1, x2];
-    [dist, closest_obs] = find_closest_obs(x_veh, x3, x_obs, epsilons, phi_I);
+%     [dist, closest_obs] = find_closest_obs(x_veh, x3, x_obs, epsilons, phi_I);
+    [dist, closest_obs] = find_closest_obs(x_veh, xs_obs, eta0, epsilons);
     x0 = x_obs(closest_obs, :);
-    dist_center = norm(x_veh - x0);
-
-    k_switch = 2.5;
-    dist_switch = k_switch * max(epsilons(closest_obs, :) ) + 0.7;
-    if safe_mode == 1 && dist_center > dist_switch
+    if safe_mode == 1 && dist > 0.75*r 
         safe_mode = 0;
     end
-    if safe_mode == 0 && dist_center <= dist_switch - 0.1
+    if safe_mode == 0 && avoid_obstacle && dist <= 0.75*r - 0.05*r
         safe_mode = 1;
     end
-    for j = 1:length(eta0)
-        x_obs_cbf = x_obs(j, :);
-        Bar_F(i, j) = epsilon2 - sqrt( ( x1 - x_obs_cbf (1) )^2 + ( x2 - x_obs_cbf(2) )^2 );
-    end
-    if safe_mode == 1 && avoid_obstacle
-        fprintf("In safe mode, obs %i dist: %.1d, dist center: %.1d\n", closest_obs, dist, dist_center)
+    if safe_mode == 1 
         eta_obstacle = eta0(closest_obs);
         
         [B_1, LfB_1, L2fB_1, L3fB_1, LgLf2B_1] = lie_derivatives_B_1(eta, epsilons(closest_obs, 1), eta_obstacle);
@@ -131,6 +123,7 @@ for i=1:length(T)-1
         lie_B_1 = [B_1, LfB_1, L2fB_1, L3fB_1, LgLf2B_1]';
         lie_B_2 = [B_2, LfB_2, L2fB_2, L3fB_2, LgLf2B_2]';
 
+        Bar_F(i) = epsilon2 - sqrt( (x1-x0(1))^2 + (x2-x0(2))^2 );
 
         k_1 = [1, 2, 3, 3, 2] ;
         k_2 = [1, 2, 3, 3, 2] ;
@@ -147,31 +140,28 @@ for i=1:length(T)-1
         v2_fbl_new = u(1);
 %         v1_fbl_new = u(1);
 %         v2_fbl_new = u(2);
-        v1_fbl_new = v1_fbl_new - Lf3P*0;
-        v2_fbl_new = v2_fbl_new - Lf3S*0;
+        v1_fbl_new = v1_fbl_new - Lf3P;
+        v2_fbl_new = v2_fbl_new - Lf3S;
     end
-
     u = M * [v1_fbl_new; v2_fbl_new];
     u1 = u(1);
     u2 = u(2);
 
     %% Control signal
     %%% Controller dynamics and saturation %%%
-    saturator_velocity = 1;
     x4 = x4_Old + u1*dt;
     x4 = min( max(x4, -pi/3), pi/3);
     x6 = x6_Old + u2*dt;
     x5 = x5_Old + dt*x6;
-    x5 = max(min(x5, saturator_velocity), 0);
-
     v_input = x5 + v;
+    saturator_velocity = 1;
     v_input = min(v_input, saturator_velocity);
     v_input = max(v_input, 0);
     u = [u1; v_input];
 
     %% Send control signal
     % send info to the system
-    v_input_send = v_input;
+    v_input_send = v_input ; 
     angle_send = x4 * 180/pi;
     message_send = create_message(v_input_send, angle_send);
     client_robot.send_data( message_send );
@@ -197,13 +187,24 @@ for i=1:length(T)-1
     x4_plot(i) = x4;
     input1(i) = u(1);
     input2(i) = u(2);
+    Bar_F(i) = epsilon1-sqrt((x1-x0(1))^2+(x2-x0(2))^2);
 end
 function strng = create_message(v, delta)
     strng = strcat(num2str(v), ";", num2str(delta) );
 end
 function [c1, c2, div] = pick_qp_params(radius)
-    c1 = 110 + 260 * radius;
-    c2 = 40  +  70 * radius;
-    div = max(1 - radius/3, 0.6);
-    
+    c1 = 120;
+    c2 = 45;
+    div = 1;
+    if radius < 0.25 % parameters as a function of radius
+
+    elseif radius < 0.35
+        
+    elseif radius < 0.45
+        
+    elseif radius < 0.55
+        
+    else
+        
+    end
 end
