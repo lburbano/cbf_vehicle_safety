@@ -133,7 +133,8 @@ for i=1:length(T)-1
         else
             % There is no jump!
         end
-        
+    else
+        % There is no jump!
     end
     safe_mode_k = current_obs;
     if safe_mode > 0 
