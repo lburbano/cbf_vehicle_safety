@@ -6,10 +6,13 @@ function [dist, closest] = find_closest_obs(x_veh, angle_vehicle, xs_obs, radius
     radius = max(radius(:, 1), [], 2);
     % Find obstancles in front vehicles
     angles_obs = atan2(xs_obs(:,2), xs_obs(:,1));
-    diff_angle = wrapToPi(angles_obs - phi_I);
-    not_in_front = abs(diff_angle) > angle_th;
+    diff_angle = wrapToPi(angles_obs - angle_vehicle);
+%     not_in_front = abs(diff_angle) > angle_th;
+    not_in_front = abs(diff_angle) > pi;
 
-    
+    % This is purely algorithmic
+    % Makes the distance infinity if the robot is not heading the obstacle
+    % It is not a mathematical thing but rather a way to implement
     xs_obs(not_in_front, :) = inf;
     n_obs = size(xs_obs);
     n_obs = n_obs(1);
@@ -24,5 +27,5 @@ function [dist, closest] = find_closest_obs(x_veh, angle_vehicle, xs_obs, radius
 %     else
 %         dist = inf;
 %     end
-    [dist, closest] = min(dist);
+    [~, closest] = min(dist);
 end

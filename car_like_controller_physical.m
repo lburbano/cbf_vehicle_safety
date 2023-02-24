@@ -193,18 +193,7 @@ function strng = create_message(v, delta)
     strng = strcat(num2str(v), ";", num2str(delta) );
 end
 function [c1, c2, div] = pick_qp_params(radius)
-    c1 = 120;
-    c2 = 45;
-    div = 1;
-    if radius < 0.25 % parameters as a function of radius
-
-    elseif radius < 0.35
-        
-    elseif radius < 0.45
-        
-    elseif radius < 0.55
-        
-    else
-        
-    end
+    c1 = 65  + 0 * radius;
+    c2 = 40  +  0 * radius;
+    div = 0.9 + 0*max(1 - radius/2, 0.6);
 end
