@@ -22,7 +22,7 @@ r        = 2;     %% radius of the circle to follow
 %% Obstacle avoidance parameters
 epsilon1    = 0.2;
 eta0        = -pi/4;
-eta0        = [-pi/4 -pi/4 -pi/4];
+eta0        = [-pi/4];
 % [0 -pi];
 % [0 -pi/4 -pi/8]
 % [-pi/2 0 -pi]
@@ -33,7 +33,7 @@ n_obstacles = length(eta0);
 xs_obs = [];
 epsilons = [];
 for i = 1 :length(eta0)
-    xs_obs = [xs_obs; r*(1+i/10)*[sin(eta0(i)), cos(eta0(i))] ];
+    xs_obs = [xs_obs; r*(1+i/5)*[sin(eta0(i)), cos(eta0(i))] ];
     epsilons = [epsilons; [epsilon1, epsilon2]];
 end
 phi_0 = pi/2; % threshold angle
@@ -55,7 +55,7 @@ x0 = [X1_0; X2_0; X3_0; X4_0; X5_0; X6_0];
 
 % Simulation time
 Tmax = 20;  % End point
-dt = 1/25; % Time step
+dt = 1/20; % Time step
 T = 0:dt:Tmax; % Time vector
 time = T;
 
@@ -94,10 +94,9 @@ x6 = x6_Old;
 
 saturator_v = 1;
 saturator_d = pi/3;
-safe_mode = 0;
-mu = 1.1;
+safe_mode = zeros(length(eta0), 1);
+mu = 1.2;
 lambda = 0;
-epsilon_switch = 0.1;
 for i=1:length(T)-1
     %% Transformed states
     
@@ -113,61 +112,48 @@ for i=1:length(T)-1
     
     x_veh = [x1, x2];
     [dist, closest_obs] = find_closest_obs(x_veh, x3, xs_obs, epsilons, phi_0);
-    k_switch = 2;
-    
-%     tau = 2*pi*r/10 + 0.5;
-    tau = k_switch * max(epsilons(:)) + 0.5;
+    k_switch = 1;
+%     for obs_iter = 1:n_obstacles
     
     x0 = xs_obs(closest_obs, :);
     Bar_F(i, :) = dist;
-    if safe_mode > 0 && min(Bar_F(i, :)) > tau % 2*pi*r/10 %norm([x1, x2] - x0) - epsilons(closest_obs) > k_switch*epsilons(closest_obs)
-        % here there is a jump
-        safe_mode = 0;
-    elseif min(Bar_F(i, :)) <= tau - epsilon_switch % 0*2*pi*r/10-0.1 % avoid zeno behavior between nominal control and obstacle avoidance
-        if safe_mode == 0
-            [min_B, new_B] = min(Bar_F(i, :));
-            safe_mode = new_B;
-            current_obs = safe_mode;
-        else
-            current_B = Bar_F(i, current_obs);
-            safe_mode = current_obs;
-            Bar_F_store = Bar_F(i, :);
-%             Bar_F_store(current_obs) = inf;
-            [min_B, new_B] = min(Bar_F_store);
-            if current_B >= (mu) * min_B % avoid zeno behavior in the switching among obstacles
-                % here there is a jump
-                safe_mode = new_B;
-                current_obs = safe_mode;
-            else
-                % There is no jump!
-            end
-        end
-    else
-        % There is no jump!
-    end
     avoid_obstacle = 1;
-    if safe_mode > 0 && avoid_obstacle
-        eta_obstacle = eta0(current_obs);
-        xi_obstacle = sum(xs_obs(current_obs, :).^2) - r^2;
-%         epsilon = epsilons(Bar_F(i, :) <= 2*pi*r/10, :);
-%         epsilon = max(epsilon(:));
-        epsilon = max(epsilons(current_obs, :));
-        [B_1, LfB_1, L2fB_1, L3fB_1, LgLf2B_1] = lie_derivatives_B_1(eta, epsilon, eta_obstacle);
-        [B_2, LfB_2, L2fB_2, L3fB_2, LgLf2B_2] = lie_derivatives_B_2(xi, epsilon, xi_obstacle);
-        lie_B_1 = [B_1, LfB_1, L2fB_1, L3fB_1, LgLf2B_1]';
-        lie_B_2 = [B_2, LfB_2, L2fB_2, L3fB_2, LgLf2B_2]';
+    A = [];
+    B = [];
+    for j = 1:length(eta0)
+        if safe_mode(j) > 0 && Bar_F(i, j) > 2*pi*r/5
+            safe_mode(j) = 0;
+        elseif safe_mode(j)==0 && Bar_F(i, j) < 2*pi*r/5 - 0.1
+            safe_mode(j) = 1;
+        end
+        current_obs = j;
+        if safe_mode(j) > 0 && avoid_obstacle
+            eta_obstacle = eta0(current_obs);
+            xi_obstacle = (sum(xs_obs(j, :).^2) - r^2);
+    %         epsilon = epsilons(Bar_F(i, :) <= 2*pi*r/10, :);
+    %         epsilon = max(epsilon(:));
+            epsilon = max(epsilons(current_obs, :));
+            [B_1, LfB_1, L2fB_1, L3fB_1, LgLf2B_1] = lie_derivatives_B_1(eta, epsilon, eta_obstacle);
+            [B_2, LfB_2, L2fB_2, L3fB_2, LgLf2B_2] = lie_derivatives_B_2(xi, epsilon, xi_obstacle);
+            lie_B_1 = [B_1, LfB_1, L2fB_1, L3fB_1, LgLf2B_1]';
+            lie_B_2 = [B_2, LfB_2, L2fB_2, L3fB_2, LgLf2B_2]';
 
-        k_1 = [1, 3, 4, 4, 3] ;
-        k_2 = [1, 3, 4, 4, 3] ;
-        [A_ineq, B_ineq] = create_inequalities(k_1, k_2, lie_B_1, lie_B_2, M, Lf3P, Lf3S, x5, x4, saturator_v, saturator_d);
-        [c1, c2, div] = pick_qp_params(epsilons(current_obs), r);
-%         div = 1/min_B;
+            k_1 = [1, 3, 4, 4, 3] ;
+            k_2 = [1, 3, 4, 4, 3] ;
+            [A_ineq, B_ineq] = create_inequalities(k_1, k_2, lie_B_1, lie_B_2, M, Lf3P, Lf3S, x5, x4, saturator_v, saturator_d);
+            
+            A = [A; A_ineq];
+            B = [B; B_ineq];
+        end
+    end
+    if sum(safe_mode) > 0
+        eps = max(max( epsilons(safe_mode, :) ));
+        [c1, c2, div] = pick_qp_params(eps, r);
         Q = diag([1/div 1/div 1 1]);
         uc = [v1_fbl_new v2_fbl_new]'/div;
         F_obj = [-uc(2) -uc(1) c1 c2];
-
-        u = quadprog(Q, F_obj, A_ineq, B_ineq, [], [], [], [],[], options);
         
+        u = quadprog(Q, F_obj, A, B, [], [], [], [],[], options);
         v1_fbl_new = u(2);
         v2_fbl_new = u(1);
     end
@@ -185,7 +171,7 @@ for i=1:length(T)-1
     %%% Controller dynamics %%%
     x6 = x6_Old + u2*dt;
     x5 = x5_Old + dt*x6;
-    x5 = min( max(x5, -v), saturator_v);
+    x5 = min( max(x5, 0), saturator_v);
     x6 = (x5 - x5_Old) / dt;
     
     x4 = x4_Old + u1*dt;
@@ -244,7 +230,7 @@ for i=1:length(T)-1
     eta2_plot(i) = eta2;
     input1(i) = u(1);
     input2(i) = u(2);
-    q_store(i) = safe_mode;
+    q_store(i, :) = safe_mode;
     
 end
 
@@ -301,8 +287,8 @@ grid on;
 
 
 function [c1, c2, div] = pick_qp_params(radius_obs, radius)
-    c1 = 60  + 300 * radius_obs + min(50 * radius, 200); 
-    c2 = 40  +  50  * radius_obs + 50 * radius; 
+    c1 = 100  + 300 * radius_obs + min(50 * radius, 100); 
+    c2 = 30  +  50  * radius_obs + 50 * radius; 
     div = max(0.5, 1 - radius*2)*0+4;
     
 end

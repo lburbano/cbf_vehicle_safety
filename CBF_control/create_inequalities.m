@@ -29,19 +29,19 @@ function [A, B] = create_inequalities( k_1, k_2, lie_derivatives_B_1, lie_deriva
     max_acc = 100;
     max_heading_vel = 1;
     B = [B_1; B_2; 0; 0; 0; 0];
-    if x5 > saturator_v - 0.05 % If 
-%         B = [B_1; B_2; 0 + L(1); max_heading_vel + L(2); max_acc - L(1); max_heading_vel - L(2)];
-        B(4, :) = 0 + L(1) - x5; % Acceleration should be negative
-        B(6, :) = max_acc - L(1);
-    elseif x5 < 0.05
-%         B = [B_1; B_2; max_acc + L(1); max_heading_vel + L(2); 0 - L(1); max_heading_vel - L(2)];
-        B(4, :) = max_acc + L(1); % Acceleration should be positive
-        B(6, :) = 0 - L(1);
-    else
-%         B = [B_1; B_2; max_acc + L(1); max_heading_vel + L(2); max_acc - L(1); max_heading_vel - L(2)];
-        B(4, :) = max_acc + L(1); % Acceleration should be positive
-        B(6, :) = max_acc - L(1);
-    end
+%     if x5 > saturator_v - 0.05 % If 
+% %         B = [B_1; B_2; 0 + L(1); max_heading_vel + L(2); max_acc - L(1); max_heading_vel - L(2)];
+%         B(4, :) = 0 + L(1); % Acceleration should be negative
+%         B(6, :) = max_acc - L(1);
+%     elseif x5 < 0.05
+% %         B = [B_1; B_2; max_acc + L(1); max_heading_vel + L(2); 0 - L(1); max_heading_vel - L(2)];
+%         B(4, :) = max_acc + L(1); % Acceleration should be positive
+%         B(6, :) = 0 - L(1);
+%     else
+% %         B = [B_1; B_2; max_acc + L(1); max_heading_vel + L(2); max_acc - L(1); max_heading_vel - L(2)];
+%         B(4, :) = max_acc + L(1); % Acceleration should be positive
+%         B(6, :) = max_acc - L(1);
+%     end
     if x4 > saturator_d - 0.01
         B(3, :) = 0 + L(1);
         B(5, :) = max_heading_vel - L(2);

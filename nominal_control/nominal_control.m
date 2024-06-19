@@ -36,8 +36,8 @@ function [v_tang, v_tran, v1_fbl_new, v2_fbl_new, M, xi, eta, Lf3P, Lf3S] = nomi
 
     v_tang = -1*sign(eta1)*abs(eta1)^alpha1 - k4*sign(eta2-0.5)*abs(eta2-0.5)^alpha2 - k5*sign(eta3)*abs(eta3)^alpha3;
     v_tran = -k1*sign(xi1)*abs(xi1)^alpha1 - k2*sign(xi2)*abs(xi2)^alpha2 - k3*sign(xi3)*abs(xi3)^alpha3;
-    v1_fbl_new = -Lf3P + v_tang;
-    v2_fbl_new = -Lf3S + v_tran;
+    v1_fbl_new = -Lf3P*0 + v_tang;
+    v2_fbl_new = -Lf3S*0 + v_tran;
 
     xi = [xi1, xi2, xi3];
     eta = [eta1, eta2, eta3];
